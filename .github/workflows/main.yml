@@ -1,0 +1,36 @@
+name: Auto Semantic Release
+
+on:
+  push:
+    branches:
+      - main # 或 master
+
+permissions:
+  contents: write # 必须赋予写入权限以创建 Tag 和 Release
+
+jobs:
+  release:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 关键：必须获取全部历史提交和标签，否则无法计算版本差异
+
+      - name: Auto Tag & GitHub Release
+        id: tagger
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          default_bump: false # 如果没有匹配到 fix/feat 则不发新版
+          # release_branches: main
+
+      # 仅在产生新 Tag 时创建 Release
+      - name: Create GitHub Release
+        if: steps.tagger.outputs.new_tag != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.tagger.outputs.new_tag }}" \
+            --title "Release ${{ steps.tagger.outputs.new_tag }}" \
+            --notes "${{ steps.tagger.outputs.changelog }}"
